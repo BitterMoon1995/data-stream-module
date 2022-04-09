@@ -1,15 +1,17 @@
 package com.wstx.ds.sf.server;
 
-import com.wstx.ds.sf.codec.SyncFrameCodec;
-import com.wstx.ds.sf.config.NettyConfig;
+import com.wstx.ds.sf.codec.SyncFrameDecoder;
+import com.wstx.ds.config.NettyConfig;
+import com.wstx.ds.sf.handler.PlbHandler;
 import com.wstx.ds.sf.handler.SyncFrameHandler;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
-import io.netty.handler.logging.LoggingHandler;
+import io.netty.handler.timeout.IdleStateHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
 import org.springframework.boot.ApplicationArguments;
@@ -30,51 +32,46 @@ public class SyncFrameServer implements ApplicationRunner,
     @Resource
     NettyConfig config;
 
-    private ApplicationContext applicationContext;
-
-    int port = config.getSfPort();
-
     //准备双循环组
     static NioEventLoopGroup bosses = new NioEventLoopGroup();
     static NioEventLoopGroup workers = new NioEventLoopGroup();
+    static NioEventLoopGroup dbAccessGp = new NioEventLoopGroup();
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        log.debug("run了");
 
         //准备日志处理器、同步帧编解码器、同步帧处理器
-        final LoggingHandler loggingHandler = new LoggingHandler();
-        SyncFrameCodec syncFrameCodec = new SyncFrameCodec();
-        SyncFrameHandler syncFrameHandler = applicationContext.getBean(SyncFrameHandler.class);
 
         ServerBootstrap bootstrap = new ServerBootstrap();
-        bootstrap.group(bosses,workers);
+        bootstrap.group(bosses, workers);
         bootstrap.channel(NioServerSocketChannel.class);
         bootstrap.childHandler(new ChannelInitializer<NioSocketChannel>() {
             @Override
             protected void initChannel(NioSocketChannel ch) throws Exception {
-                ch.pipeline().addLast(
-//                        new StringEncoder(),
-                        new LengthFieldBasedFrameDecoder(
-                        1024,12,
-                        4,0,0),
-                        loggingHandler,
-                        syncFrameCodec,
-                        syncFrameHandler);
+
+                ChannelPipeline pipeline = ch.pipeline();
+                pipeline.addLast(new IdleStateHandler(5,
+                        0,0));
+                pipeline.addLast(new LengthFieldBasedFrameDecoder(
+                        1024, 12,
+                        4, 0, 0));
+                pipeline.addLast(new SyncFrameDecoder());
+                pipeline.addLast(new SyncFrameHandler());
+                pipeline.addLast(dbAccessGp,new PlbHandler());
             }
         });
-        bootstrap.bind(port);
+        bootstrap.bind(config.getSfPort());
     }
 
     @Override
     public void onApplicationEvent(ContextClosedEvent closedEvent) {
         bosses.shutdownGracefully();
         workers.shutdownGracefully();
+        dbAccessGp.shutdownGracefully();
         log.debug("同步帧接收服务器停止");
     }
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        this.applicationContext = applicationContext;
     }
 }

@@ -1,0 +1,21 @@
+一. 冷知识之TCP发送端必须传输字节码
+不要发字符串不要发字符串不要发字符串！不然会被语言平台迷之编码，
+比如Java平台就会莫名其妙多几个字节，LengthFieldBasedFrameDecoder直接废掉！
+Java就发字节数组，Go就发字节切片，其他语言以此类推。
+
+获取字节数组的时候，一定要用最原始的方式循环遍历，逐字节初始化数据，
+不要用语言或框架的API，例如ByteBuf.toString.getBytes，极容易出事，
+正例：ClientFunction.genSfBytes
+
+
+二. 黑人与我妻之IdleStateHandler
+IdleStateHandler的工作原理是：对端在idle time内未读、写，向后一个handler抛IdleStateEvent。
+本质上就是处理TCP对端的半连接。
+如果对端主动关闭连接，根本就不处理，也不会向后抛事件。
+所以这个handler本身没有什么可讲，最重要的是客户端代码的编写，
+客户端需要设置一个静默的逻辑（Thead.sleep），并使静默的时间超过idle time，才能正确触发channelIdle
+绝对不能发完就关闭连接！
+IdleStateHandler不处理连接关闭！
+IdleStateHandler不处理连接关闭！
+IdleStateHandler不处理连接关闭！
+

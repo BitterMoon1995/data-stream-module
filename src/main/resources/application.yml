@@ -1,3 +1,21 @@
 server:
-  port: 8091
+  port: 8020
+  servlet:
+    context-path: /ds-service
 
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/vdos_tmp?autoReconnect=true&useServerPreparedStmts=false&rewriteBatchedStatements=true&characterEncoding=UTF-8&useSSL=false&allowMultiQueries=true&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: wstx3306
+
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    password: wstx6379
+
+monica:
+  gateway:
+    listenAddr: http://127.0.0.1:8030
+  jessica:
+    listenAddr: ws://localhost:8031

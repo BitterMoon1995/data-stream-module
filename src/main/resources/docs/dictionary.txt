@@ -1,0 +1,2 @@
+SF ——   synchronous frame 同步帧
+TPL ——  track point list 无人机飞行轨迹点列表
